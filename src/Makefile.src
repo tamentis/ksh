@@ -1,0 +1,46 @@
+BINARY=ksh
+
+OBJECTS=alloc.o \
+	c_ksh.o \
+	c_sh.o \
+	c_test.o \
+	c_ulimit.o \
+	edit.o \
+	emacs.o \
+	eval.o \
+	exec.o \
+	expr.o \
+	history.o \
+	io.o \
+	jobs.o \
+	lex.o \
+	mail.o \
+	main.o \
+	mknod.o \
+	misc.o \
+	path.o \
+	shf.o \
+	syn.o \
+	table.o \
+	trap.o \
+	tree.o \
+	tty.o \
+	var.o \
+	version.o \
+	vi.o
+
+OBJECTS+=${EXTRA_OBJECTS}
+
+CFLAGS?=--std=c99 -Wall
+
+all: ${BINARY}
+
+obj: ${OBJECTS}
+
+${BINARY}: ${OBJECTS}
+	$(CC) -o ${BINARY} ${OBJECTS}
+
+clean:
+	rm -f ${BINARY} ${OBJECTS}
+
+.PHONY: clean all

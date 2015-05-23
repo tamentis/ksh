@@ -1,0 +1,38 @@
+PROG=ksh
+
+all: src/ksh
+
+src/ksh:
+	cd src/ && make
+
+test:
+	cd tests/ && make test
+
+install: src/${PROG}
+	install -d ${DESTDIR}${PREFIX}/bin
+	install -m 755 src/${PROG} ${DESTDIR}${PREFIX}/bin
+	install -d ${DESTDIR}${MANDIR}/man1
+	install -m 644 ${PROG}.1 ${DESTDIR}${MANDIR}/man1
+
+clean:
+	cd src/ && make clean
+	cd afl/ && make clean
+	cd tests/ && make clean
+
+mantest:
+	nroff -man ${PROG}.1 | less -R
+
+rcmantest:
+	nroff -man ${PROG}rc.1 | less -R
+
+README: ${PROG}.1
+	# On Linux
+	# nroff -c -man ${PROG}.1 | col -b > README
+	# On OpenBSD 5.3+
+	mandoc -Tascii ${PROG}.1 \
+		| sed 's/.//g' \
+		| tail +3 \
+		| sed '$$d' \
+		> README
+
+.PHONY: clean test all mantest
