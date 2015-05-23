@@ -143,7 +143,8 @@ static int		kill_job(Job *, int);
 void
 j_init(int mflagset)
 {
-	child_max = CHILD_MAX; /* so syscon() isn't always being called */
+	/* copied from sys/syslimits.h */
+	child_max = 80; /* so syscon() isn't always being called */
 
 	sigemptyset(&sm_default);
 	sigprocmask(SIG_SETMASK, &sm_default, (sigset_t *) 0);

@@ -828,6 +828,8 @@ c_mknod(char **wp)
 	while ((optc = ksh_getopt(wp, &builtin_opt, "m:")) != -1) {
 		switch (optc) {
 		case 'm':
+			errx(1, "setmode/getmode not implemented");
+			/*
 			set = setmode(builtin_opt.optarg);
 			if (set == NULL) {
 				bi_errorf("invalid file mode");
@@ -835,6 +837,7 @@ c_mknod(char **wp)
 			}
 			mode = getmode(set, DEFFILEMODE);
 			free(set);
+			*/
 			break;
 		default:
 			goto usage;
