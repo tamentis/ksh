@@ -7,6 +7,8 @@
 
 #include <sys/types.h>
 
+#include "queue.h"
+
 /* Found in sys/types.h on OpenBSD. */
 // typedef unsigned char u_char;
 
