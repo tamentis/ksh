@@ -11,6 +11,8 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include "compat.h"
+
 /* Include emacs editing? */
 #define EMACS 1
 

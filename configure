@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 # Configure script for 'prwd'
-# Copyright (c) 2012-2015 Bertrand Janin <b@janin.com>
+# Copyright (c) 2012-2017 Bertrand Janin <b@janin.com>
 #
 #
 
@@ -224,6 +224,48 @@ else
 	echo yes
 fi
 rm -f fake_strtonum*
+
+# Check if we have pledge (yeah right)
+echo -n "pledge... "
+cat <<EOF > fake_pledge.c
+main() { int i; i = pledge("", ""); }
+EOF
+if ! ${CC} fake_pledge.c -o /dev/null 1>/dev/null 2>/dev/null; then
+	echo "not found (we'll use ours)"
+	X_OBJECTS="$X_OBJECTS pledge.o"
+	CFLAGS="$CFLAGS -DHAS_NO_PLEDGE"
+else
+	echo yes
+fi
+rm -f fake_pledge*
+
+# Check if we have setresgid
+echo -n "setresgid... "
+cat <<EOF > fake_setresgid.c
+main() { int i; i = setresgid(9999, 9999, 9999); }
+EOF
+if ! ${CC} fake_setresgid.c -o /dev/null 1>/dev/null 2>/dev/null; then
+	echo "not found (we'll use ours)"
+	X_OBJECTS="$X_OBJECTS setresgid.o"
+	CFLAGS="$CFLAGS -DHAS_NO_SETRESGID"
+else
+	echo yes
+fi
+rm -f fake_setresgid*
+
+# Check if we have setresuid
+echo -n "setresuid... "
+cat <<EOF > fake_setresuid.c
+main() { int i; i = setresuid(9999, 9999, 9999); }
+EOF
+if ! ${CC} fake_setresuid.c -o /dev/null 1>/dev/null 2>/dev/null; then
+	echo "not found (we'll use ours)"
+	X_OBJECTS="$X_OBJECTS setresuid.o"
+	CFLAGS="$CFLAGS -DHAS_NO_SETRESUID"
+else
+	echo yes
+fi
+rm -f fake_setresuid*
 
 
 generate_makefile Makefile.src > Makefile
