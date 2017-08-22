@@ -1,32 +1,13 @@
-/*	$OpenBSD: alloc.c,v 1.8 2008/07/21 17:30:08 millert Exp $	*/
-/*
- * Copyright (c) 2002 Marc Espie.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE OPENBSD PROJECT AND CONTRIBUTORS
- * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE OPENBSD
- * PROJECT OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
+/*	$OpenBSD: alloc.c,v 1.15 2016/06/01 10:29:20 espie Exp $	*/
+
+/* Public domain, like most of the rest of ksh */
 
 /*
  * area-based allocation built on malloc/free
  */
+
+#include <stdint.h>
+#include <stdlib.h>
 
 #include "sh.h"
 
@@ -62,6 +43,10 @@ alloc(size_t size, Area *ap)
 {
 	struct link *l;
 
+	/* ensure that we don't overflow by allocating space for link */
+	if (size > SIZE_MAX - sizeof(struct link))
+		internal_errorf(1, "unable to allocate memory");
+
 	l = malloc(sizeof(struct link) + size);
 	if (l == NULL)
 		internal_errorf(1, "unable to allocate memory");
@@ -74,6 +59,26 @@ alloc(size_t size, Area *ap)
 	return L2P(l);
 }
 
+/*
+ * Copied from calloc().
+ *
+ * This is sqrt(SIZE_MAX+1), as s1*s2 <= SIZE_MAX
+ * if both s1 < MUL_NO_OVERFLOW and s2 < MUL_NO_OVERFLOW
+ */
+#define MUL_NO_OVERFLOW	(1UL << (sizeof(size_t) * 4))
+
+void *
+areallocarray(void *ptr, size_t nmemb, size_t size, Area *ap)
+{
+	/* condition logic cloned from calloc() */
+	if ((nmemb >= MUL_NO_OVERFLOW || size >= MUL_NO_OVERFLOW) &&
+	    nmemb > 0 && SIZE_MAX / nmemb < size) {
+		internal_errorf(1, "unable to allocate memory");
+	}
+
+	return aresize(ptr, nmemb * size, ap);
+}
+
 void *
 aresize(void *ptr, size_t size, Area *ap)
 {
@@ -81,6 +86,10 @@ aresize(void *ptr, size_t size, Area *ap)
 
 	if (ptr == NULL)
 		return alloc(size, ap);
+
+	/* ensure that we don't overflow by allocating space for link */
+	if (size > SIZE_MAX - sizeof(struct link))
+		internal_errorf(1, "unable to allocate memory");
 
 	l = P2L(ptr);
 	lprev = l->prev;

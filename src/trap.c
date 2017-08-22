@@ -1,8 +1,13 @@
-/*	$OpenBSD: trap.c,v 1.23 2010/05/19 17:36:08 jasper Exp $	*/
+/*	$OpenBSD: trap.c,v 1.30 2016/03/17 23:33:23 mmcc Exp $	*/
 
 /*
  * signal handling
  */
+
+#include <ctype.h>
+#include <errno.h>
+#include <string.h>
+#include <unistd.h>
 
 #include "sh.h"
 
@@ -18,8 +23,13 @@ inittraps(void)
 	/* Populate sigtraps based on sys_signame and sys_siglist. */
 	for (i = 0; i <= NSIG; i++) {
 		sigtraps[i].signal = i;
-		sigtraps[i].name = "ERR";
-		sigtraps[i].mess = "Error handler";
+		if (i == SIGERR_) {
+			sigtraps[i].name = "ERR";
+			sigtraps[i].mess = "Error handler";
+		} else {
+			sigtraps[i].name = sys_signame[i];
+			sigtraps[i].mess = sys_siglist[i];
+		}
 	}
 	sigtraps[SIGEXIT_].name = "EXIT";	/* our name for signal 0 */
 
@@ -52,7 +62,6 @@ alarm_init(void)
 		SS_RESTORE_ORIG|SS_FORCE|SS_SHTRAP);
 }
 
-/* ARGSUSED */
 static void
 alarm_catcher(int sig)
 {
@@ -193,7 +202,7 @@ runtraps(int flag)
 		fatal_trap = 0;
 	for (p = sigtraps, i = NSIG+1; --i >= 0; p++)
 		if (p->set && (!flag ||
-		    ((p->flags & flag) && p->trap == (char *) 0)))
+		    ((p->flags & flag) && p->trap == NULL)))
 			runtrap(p);
 }
 
@@ -206,7 +215,7 @@ runtrap(Trap *p)
 	int	old_changed = 0;
 
 	p->set = 0;
-	if (trapstr == (char *) 0) { /* SIG_DFL */
+	if (trapstr == NULL) { /* SIG_DFL */
 		if (p->flags & TF_FATAL) {
 			/* eg, SIGHUP */
 			exstat = 128 + i;
@@ -224,7 +233,7 @@ runtrap(Trap *p)
 	if (i == SIGEXIT_ || i == SIGERR_) {	/* avoid recursion on these */
 		old_changed = p->flags & TF_CHANGED;
 		p->flags &= ~TF_CHANGED;
-		p->trap = (char *) 0;
+		p->trap = NULL;
 	}
 	oexstat = exstat;
 	/* Note: trapstr is fully parsed before anything is executed, thus
@@ -255,7 +264,7 @@ cleartraps(void)
 	for (i = NSIG+1, p = sigtraps; --i >= 0; p++) {
 		p->set = 0;
 		if ((p->flags & TF_USER_SET) && (p->trap && p->trap[0]))
-			settrap(p, (char *) 0);
+			settrap(p, NULL);
 	}
 }
 
@@ -277,8 +286,7 @@ settrap(Trap *p, char *s)
 {
 	sig_t f;
 
-	if (p->trap)
-		afree(p->trap, APERM);
+	afree(p->trap, APERM);
 	p->trap = str_save(s, APERM); /* handles s == 0 */
 	p->flags |= TF_CHANGED;
 	f = !s ? SIG_DFL : s[0] ? trapsig : SIG_IGN;
@@ -382,7 +390,7 @@ setsig(Trap *p, sig_t f, int flags)
 		sigemptyset(&sigact.sa_mask);
 		sigact.sa_flags = 0 /* interruptible */;
 		sigact.sa_handler = f;
-		sigaction(p->signal, &sigact, (struct sigaction *) 0);
+		sigaction(p->signal, &sigact, NULL);
 	}
 
 	return 1;
