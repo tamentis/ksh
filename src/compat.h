@@ -9,14 +9,11 @@
 
 #include "queue.h"
 
-/* Found in sys/types.h on OpenBSD. */
-// typedef unsigned char u_char;
-
-/* No idea where this is. */
-// typedef void * caddr_t;
-
-/* Found in include/pwd.h on OpenBSD. */
+/* Found in include/pwd.h on OpenBSD 6.1 */
 #define _PW_NAME_LEN 31
+
+/* Found in include/limits.h on OpenBSD 6.1 */
+#define CHILD_MAX 80
 
 /* Yes that sucks. */
 #define srand_deterministic srand

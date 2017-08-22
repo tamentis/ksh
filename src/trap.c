@@ -23,13 +23,8 @@ inittraps(void)
 	/* Populate sigtraps based on sys_signame and sys_siglist. */
 	for (i = 0; i <= NSIG; i++) {
 		sigtraps[i].signal = i;
-		if (i == SIGERR_) {
-			sigtraps[i].name = "ERR";
-			sigtraps[i].mess = "Error handler";
-		} else {
-			sigtraps[i].name = sys_signame[i];
-			sigtraps[i].mess = sys_siglist[i];
-		}
+		sigtraps[i].name = "ERR";
+		sigtraps[i].mess = "Error handler";
 	}
 	sigtraps[SIGEXIT_].name = "EXIT";	/* our name for signal 0 */
 
