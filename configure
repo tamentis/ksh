@@ -1,11 +1,11 @@
 #!/bin/sh
 #
-# Configure script for 'prwd'
+# Configure script for 'ksh'
 # Copyright (c) 2012-2017 Bertrand Janin <b@janin.com>
 #
 #
 
-VERSION="1.9.1"
+VERSION="6.1"
 
 
 # Some shells have shitty echos
