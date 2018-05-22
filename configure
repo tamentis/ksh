@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 # Configure script for 'ksh'
-# Copyright (c) 2012-2017 Bertrand Janin <b@janin.com>
+# Copyright (c) 2012-2018 Bertrand Janin <b@janin.com>
 #
 #
 
@@ -267,6 +267,35 @@ else
 fi
 rm -f fake_setresuid*
 
+# Check if we have stravis
+echo -n "stravis... "
+cat <<EOF > fake_stravis.c
+#include <vis.h>
+main() { int i; i = stravis(NULL, NULL, 0); }
+EOF
+if ! ${CC} fake_stravis.c -o /dev/null 1>/dev/null 2>/dev/null; then
+	echo "not found (we'll use ours)"
+	X_OBJECTS="$X_OBJECTS stravis.o"
+	CFLAGS="$CFLAGS -DHAS_NO_STRAVIS"
+else
+	echo yes
+fi
+rm -f fake_stravis*
+
+# Check if we have reallocarray
+echo -n "reallocarray... "
+cat <<EOF > fake_reallocarray.c
+#include <stdlib.h>
+main() { char *c; c = reallocarray(NULL, 0, 0); }
+EOF
+if ! ${CC} fake_reallocarray.c -o /dev/null 1>/dev/null 2>/dev/null; then
+	echo "not found (we'll use ours)"
+	X_OBJECTS="$X_OBJECTS reallocarray.o"
+	CFLAGS="$CFLAGS -DHAS_NO_REALLOCARRAY"
+else
+	echo yes
+fi
+rm -f fake_reallocarray*
 
 generate_makefile Makefile.src > Makefile
 generate_makefile src/Makefile.src > src/Makefile

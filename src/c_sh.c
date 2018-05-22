@@ -1,4 +1,4 @@
-/*	$OpenBSD: c_sh.c,v 1.59 2016/03/04 15:11:06 deraadt Exp $	*/
+/*	$OpenBSD: c_sh.c,v 1.62 2017/12/27 13:02:57 millert Exp $	*/
 
 /*
  * built-in Bourne commands
@@ -18,7 +18,8 @@
 
 #include "sh.h"
 
-static void p_time(struct shf *, int, struct timeval *, int, char *, char *);
+static void p_tv(struct shf *, int, struct timeval *, int, char *, char *);
+static void p_ts(struct shf *, int, struct timespec *, int, char *, char *);
 
 /* :, false and true */
 int
@@ -199,7 +200,7 @@ c_dot(char **wp)
 
 	if ((cp = wp[builtin_opt.optind]) == NULL)
 		return 0;
-	file = search(cp, path, R_OK, &err);
+	file = search(cp, search_path, R_OK, &err);
 	if (file == NULL) {
 		bi_errorf("%s: %s", cp, err ? strerror(err) : "not found");
 		return 1;
@@ -249,7 +250,7 @@ int
 c_read(char **wp)
 {
 	int c = 0;
-	int expand = 1, history = 0;
+	int expand = 1, savehist = 0;
 	int expanding;
 	int ecode = 0;
 	char *cp;
@@ -273,7 +274,7 @@ c_read(char **wp)
 			expand = 0;
 			break;
 		case 's':
-			history = 1;
+			savehist = 1;
 			break;
 		case 'u':
 			if (!*(cp = builtin_opt.optarg))
@@ -319,7 +320,7 @@ c_read(char **wp)
 	 * coproc_readw_close(fd);
 	 */
 
-	if (history)
+	if (savehist)
 		Xinit(xs, xp, 128, ATEMP);
 	expanding = 0;
 	Xinit(cs, cp, 128, ATEMP);
@@ -347,7 +348,7 @@ c_read(char **wp)
 				}
 				break;
 			}
-			if (history) {
+			if (savehist) {
 				Xcheck(xs, xp);
 				Xput(xs, xp, c);
 			}
@@ -360,7 +361,7 @@ c_read(char **wp)
 						/* set prompt in case this is
 						 * called from .profile or $ENV
 						 */
-						set_prompt(PS2, NULL);
+						set_prompt(PS2);
 						pprompt(prompt, 0);
 					}
 				} else if (c != EOF)
@@ -403,7 +404,7 @@ c_read(char **wp)
 	}
 
 	shf_flush(shf);
-	if (history) {
+	if (savehist) {
 		Xput(xs, xp, '\0');
 		source->line++;
 		histsave(source->line, Xstring(xs, xp), 1);
@@ -670,7 +671,7 @@ c_unset(char **wp)
 }
 
 static void
-p_time(struct shf *shf, int posix, struct timeval *tv, int width, char *prefix,
+p_tv(struct shf *shf, int posix, struct timeval *tv, int width, char *prefix,
     char *suffix)
 {
 	if (posix)
@@ -683,18 +684,34 @@ p_time(struct shf *shf, int posix, struct timeval *tv, int width, char *prefix,
 		    tv->tv_usec / 10000, suffix);
 }
 
+static void
+p_ts(struct shf *shf, int posix, struct timespec *ts, int width, char *prefix,
+    char *suffix)
+{
+	if (posix)
+		shf_fprintf(shf, "%s%*lld.%02ld%s", prefix ? prefix : "",
+		    width, (long long)ts->tv_sec, ts->tv_nsec / 10000000,
+		    suffix);
+	else
+		shf_fprintf(shf, "%s%*lldm%02lld.%02lds%s", prefix ? prefix : "",
+		    width, (long long)ts->tv_sec / 60,
+		    (long long)ts->tv_sec % 60,
+		    ts->tv_nsec / 10000000, suffix);
+}
+
+
 int
 c_times(char **wp)
 {
 	struct rusage usage;
 
 	(void) getrusage(RUSAGE_SELF, &usage);
-	p_time(shl_stdout, 0, &usage.ru_utime, 0, NULL, " ");
-	p_time(shl_stdout, 0, &usage.ru_stime, 0, NULL, "\n");
+	p_tv(shl_stdout, 0, &usage.ru_utime, 0, NULL, " ");
+	p_tv(shl_stdout, 0, &usage.ru_stime, 0, NULL, "\n");
 
 	(void) getrusage(RUSAGE_CHILDREN, &usage);
-	p_time(shl_stdout, 0, &usage.ru_utime, 0, NULL, " ");
-	p_time(shl_stdout, 0, &usage.ru_stime, 0, NULL, "\n");
+	p_tv(shl_stdout, 0, &usage.ru_utime, 0, NULL, " ");
+	p_tv(shl_stdout, 0, &usage.ru_stime, 0, NULL, "\n");
 
 	return 0;
 }
@@ -710,11 +727,12 @@ timex(struct op *t, int f, volatile int *xerrok)
 #define TF_POSIX	BIT(2)		/* report in posix format */
 	int rv = 0;
 	struct rusage ru0, ru1, cru0, cru1;
-	struct timeval usrtime, systime, tv0, tv1;
+	struct timeval usrtime, systime;
+	struct timespec ts0, ts1, ts2;
 	int tf = 0;
 	extern struct timeval j_usrtime, j_systime; /* computed by j_wait */
 
-	gettimeofday(&tv0, NULL);
+	clock_gettime(CLOCK_MONOTONIC, &ts0);
 	getrusage(RUSAGE_SELF, &ru0);
 	getrusage(RUSAGE_CHILDREN, &cru0);
 	if (t->left) {
@@ -731,7 +749,7 @@ timex(struct op *t, int f, volatile int *xerrok)
 		rv = execute(t->left, f | XTIME, xerrok);
 		if (t->left->type == TCOM)
 			tf |= t->left->str[0];
-		gettimeofday(&tv1, NULL);
+		clock_gettime(CLOCK_MONOTONIC, &ts1);
 		getrusage(RUSAGE_SELF, &ru1);
 		getrusage(RUSAGE_CHILDREN, &cru1);
 	} else
@@ -749,20 +767,20 @@ timex(struct op *t, int f, volatile int *xerrok)
 	}
 
 	if (!(tf & TF_NOREAL)) {
-		timersub(&tv1, &tv0, &tv1);
+		timespecsub(&ts1, &ts0, &ts2);
 		if (tf & TF_POSIX)
-			p_time(shl_out, 1, &tv1, 5, "real ", "\n");
+			p_ts(shl_out, 1, &ts2, 5, "real ", "\n");
 		else
-			p_time(shl_out, 0, &tv1, 5, NULL, " real ");
+			p_ts(shl_out, 0, &ts2, 5, NULL, " real ");
 	}
 	if (tf & TF_POSIX)
-		p_time(shl_out, 1, &usrtime, 5, "user ", "\n");
+		p_tv(shl_out, 1, &usrtime, 5, "user ", "\n");
 	else
-		p_time(shl_out, 0, &usrtime, 5, NULL, " user ");
+		p_tv(shl_out, 0, &usrtime, 5, NULL, " user ");
 	if (tf & TF_POSIX)
-		p_time(shl_out, 1, &systime, 5, "sys  ", "\n");
+		p_tv(shl_out, 1, &systime, 5, "sys  ", "\n");
 	else
-		p_time(shl_out, 0, &systime, 5, NULL, " system\n");
+		p_tv(shl_out, 0, &systime, 5, NULL, " system\n");
 	shf_flush(shl_out);
 
 	return rv;

@@ -1,4 +1,4 @@
-/*	$OpenBSD: vi.c,v 1.44 2016/10/17 18:39:43 schwarze Exp $	*/
+/*	$OpenBSD: vi.c,v 1.56 2018/03/15 16:51:29 anton Exp $	*/
 
 /*
  *	vi command editing
@@ -18,7 +18,6 @@
 #include "sh.h"
 #include "edit.h"
 
-#define CMDLEN		2048
 #define CTRL(c)		(c & 0x1f)
 
 struct edstate {
@@ -62,7 +61,7 @@ static void	display(char *, char *, int);
 static void	ed_mov_opt(int, char *);
 static int	expand_word(int);
 static int	complete_word(int, int);
-static int	print_expansions(struct edstate *, int);
+static int	print_expansions(struct edstate *);
 static int	char_len(int);
 static void	x_vi_zotc(int);
 static void	vi_pprompt(int);
@@ -141,26 +140,25 @@ const unsigned char	classify[128] = {
 #define VREDO		7		/* . */
 #define VLIT		8		/* ^V */
 #define VSEARCH		9		/* /, ? */
-#define VVERSION	10		/* <ESC> ^V */
 
-static char		undocbuf[CMDLEN];
+static char		undocbuf[LINE];
 
 static struct edstate	*save_edstate(struct edstate *old);
 static void		restore_edstate(struct edstate *old, struct edstate *new);
 static void		free_edstate(struct edstate *old);
 
 static struct edstate	ebuf;
-static struct edstate	undobuf = { undocbuf, CMDLEN, 0, 0, 0 };
+static struct edstate	undobuf = { undocbuf, LINE, 0, 0, 0 };
 
 static struct edstate	*es;			/* current editor state */
 static struct edstate	*undo;
 
-static char	ibuf[CMDLEN];		/* input buffer */
+static char	ibuf[LINE];		/* input buffer */
 static int	first_insert;		/* set when starting in insert mode */
 static int	saved_inslen;		/* saved inslen for first insert */
 static int	inslen;			/* length of input buffer */
 static int	srchlen;		/* number of bytes in search pattern */
-static char	ybuf[CMDLEN];		/* yank buffer */
+static char	ybuf[LINE];		/* yank buffer */
 static int	yanklen;		/* length of yank buffer */
 static int	fsavecmd = ' ';		/* last find command */
 static int	fsavech;		/* character to find */
@@ -196,7 +194,7 @@ x_vi(char *buf, size_t len)
 {
 	int	c;
 
-	vi_reset(buf, len > CMDLEN ? CMDLEN : len);
+	vi_reset(buf, len > LINE ? LINE : len);
 	vi_pprompt(1);
 	x_flush();
 	while (1) {
@@ -224,7 +222,7 @@ x_vi(char *buf, size_t len)
 				trapsig(c == edchars.intr ? SIGINT : SIGQUIT);
 				x_mode(false);
 				unwind(LSHELL);
-			} else if (c == edchars.eof && state != VVERSION) {
+			} else if (c == edchars.eof) {
 				if (es->linelen == 0) {
 					x_vi_zotc(edchars.eof);
 					c = -1;
@@ -240,7 +238,7 @@ x_vi(char *buf, size_t len)
 
 	x_putc('\r'); x_putc('\n'); x_flush();
 
-	if (c == -1 || len <= es->linelen)
+	if (c == -1 || len <= (size_t)es->linelen)
 		return -1;
 
 	if (es->cbuf != buf)
@@ -302,14 +300,6 @@ vi_hook(int ch)
 						return -1;
 					refresh(0);
 				}
-				if (state == VVERSION) {
-					save_cbuf();
-					es->cursor = 0;
-					es->linelen = 0;
-					putbuf(ksh_version + 4,
-					    strlen(ksh_version + 4), 0);
-					refresh(0);
-				}
 			}
 		}
 		break;
@@ -322,12 +312,6 @@ vi_hook(int ch)
 			es->cbuf[es->cursor++] = ch;
 		refresh(1);
 		state = VNORMAL;
-		break;
-
-	case VVERSION:
-		restore_cbuf();
-		state = VNORMAL;
-		refresh(0);
 		break;
 
 	case VARG1:
@@ -555,8 +539,6 @@ nextstate(int ch)
 		return VXCH;
 	else if (ch == '.')
 		return VREDO;
-	else if (ch == CTRL('v'))
-		return VVERSION;
 	else if (is_cmd(ch))
 		return VCMD;
 	else
@@ -666,7 +648,7 @@ vi_insert(int ch)
 		break;
 
 	case CTRL('e'):
-		print_expansions(es, 0);
+		print_expansions(es);
 		break;
 
 	case CTRL('i'):
@@ -926,13 +908,24 @@ vi_cmd(int argcnt, const char *cmd)
 			if (cmd[1] == 0)
 				vi_error();
 			else {
-				int	n;
-
-				if (es->cursor + argcnt > es->linelen)
+				c1 = 0;
+				for (cur = es->cursor;
+				    cur < es->linelen; cur++) {
+					if (!isu8cont(es->cbuf[cur]))
+						c1++;
+					if (c1 > argcnt)
+						break;
+				}
+				if (argcnt > c1)
 					return -1;
-				for (n = 0; n < argcnt; ++n)
-					es->cbuf[es->cursor + n] = cmd[1];
-				es->cursor += n - 1;
+
+				del_range(es->cursor, cur);
+				while (argcnt-- > 0)
+					putbuf(&cmd[1], 1, 0);
+				while (es->cursor > 0)
+					if (!isu8cont(es->cbuf[--es->cursor]))
+						break;
+				es->cbuf[es->linelen] = '\0';
 			}
 			break;
 
@@ -945,9 +938,11 @@ vi_cmd(int argcnt, const char *cmd)
 			if (es->linelen == 0)
 				return -1;
 			modified = 1; hnum = hlast;
-			if (es->cursor + argcnt > es->linelen)
-				argcnt = es->linelen - es->cursor;
-			del_range(es->cursor, es->cursor + argcnt);
+			for (cur = es->cursor; cur < es->linelen; cur++)
+				if (!isu8cont(es->cbuf[cur]))
+					if (argcnt-- == 0)
+						break;
+			del_range(es->cursor, cur);
 			insert = INSERT;
 			break;
 
@@ -1130,7 +1125,7 @@ vi_cmd(int argcnt, const char *cmd)
 
 		case '=':			/* at&t ksh */
 		case CTRL('e'):			/* Nonstandard vi/ksh */
-			print_expansions(es, 1);
+			print_expansions(es);
 			break;
 
 
@@ -1154,8 +1149,10 @@ vi_cmd(int argcnt, const char *cmd)
 			expand_word(1);
 			break;
 		}
-		if (insert == 0 && es->cursor != 0 && es->cursor >= es->linelen)
-			es->cursor--;
+		if (insert == 0 && es->cursor >= es->linelen)
+			while (es->cursor > 0)
+				if (!isu8cont(es->cbuf[--es->cursor]))
+					break;
 	}
 	return 0;
 }
@@ -1353,7 +1350,7 @@ static char	*wbuf[2];		/* current & previous window buffer */
 static int	wbuf_len;		/* length of window buffers (x_cols-3)*/
 static int	win;			/* number of window buffer in use */
 static char	morec;			/* more character at right of window */
-static char	holdbuf[CMDLEN];	/* place to hold last edit buffer */
+static char	holdbuf[LINE];		/* place to hold last edit buffer */
 static int	holdlen;		/* length of holdbuf */
 
 static void
@@ -1528,7 +1525,7 @@ forwword(int argcnt)
 				skip_space = 1;
 				continue;
 			} else if (skip_space)
-				break; 
+				break;
 			if (uc & 0x80)
 				continue;
 			if (want_letnum == -1)
@@ -1672,7 +1669,7 @@ grabhist(int save, int n)
 	}
 	(void) histnum(n);
 	if ((hptr = *histpos()) == NULL) {
-		internal_errorf(0, "grabhist: bad history array");
+		internal_warningf("%s: bad history array", __func__);
 		return -1;
 	}
 	if (save)
@@ -2055,7 +2052,7 @@ complete_word(int command, int count)
 
 	/* Undo previous completion */
 	if (command == 0 && expanded == COMPLETE && buf) {
-		print_expansions(buf, 0);
+		print_expansions(buf);
 		expanded = PRINT;
 		return 0;
 	}
@@ -2146,7 +2143,7 @@ complete_word(int command, int count)
 }
 
 static int
-print_expansions(struct edstate *e, int command)
+print_expansions(struct edstate *e)
 {
 	int nwords;
 	int start, end;

@@ -1,4 +1,4 @@
-/*	$OpenBSD: trap.c,v 1.30 2016/03/17 23:33:23 mmcc Exp $	*/
+/*	$OpenBSD: trap.c,v 1.32 2018/03/15 16:51:29 anton Exp $	*/
 
 /*
  * signal handling
@@ -23,8 +23,13 @@ inittraps(void)
 	/* Populate sigtraps based on sys_signame and sys_siglist. */
 	for (i = 0; i <= NSIG; i++) {
 		sigtraps[i].signal = i;
-		sigtraps[i].name = "ERR";
-		sigtraps[i].mess = "Error handler";
+		if (i == SIGERR_) {
+			sigtraps[i].name = "ERR";
+			sigtraps[i].mess = "Error handler";
+		} else {
+			sigtraps[i].name = sys_signame[i];
+			sigtraps[i].mess = sys_siglist[i];
+		}
 	}
 	sigtraps[SIGEXIT_].name = "EXIT";	/* our name for signal 0 */
 
@@ -397,8 +402,8 @@ setexecsig(Trap *p, int restore)
 {
 	/* XXX debugging */
 	if (!(p->flags & (TF_ORIG_IGN|TF_ORIG_DFL)))
-		internal_errorf(1, "setexecsig: unset signal %d(%s)",
-		    p->signal, p->name);
+		internal_errorf("%s: unset signal %d(%s)",
+		    __func__, p->signal, p->name);
 
 	/* restore original value for exec'd kids */
 	p->flags &= ~(TF_EXEC_IGN|TF_EXEC_DFL);
