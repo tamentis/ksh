@@ -5,7 +5,7 @@
 #
 #
 
-VERSION="6.1"
+VERSION="6.3"
 
 
 # Some shells have shitty echos
@@ -76,6 +76,31 @@ not_found() {
 	echo
 	echo ERROR: $message
 	exit 2
+}
+
+# test_compile() - ingest stdin and test compile it
+#	$1 - what's being tested
+#	$2 - what's added to X_OBJECTS
+#	$3 - what's added to CFLAGS
+test_compile() {
+	name=$1
+	x_object_addition=$2
+	cflags_addition=$3
+
+	echo -n "$name... "
+	cat > test_compile.c
+	if ! ${CC} test_compile.c -o /dev/null 1>/dev/null 2>/dev/null; then
+		echo "not found (we'll use ours)"
+		if [ -n "$2" ]; then
+			X_OBJECTS="$X_OBJECTS $x_object_addition"
+		fi
+		if [ -n "$3" ]; then
+			CFLAGS="$CFLAGS $cflags_addition"
+		fi
+	else
+		echo yes
+	fi
+	rm -f test_compile*
 }
 
 
@@ -168,134 +193,78 @@ echo found
 rm -f fake_makefile*
 
 
-# Check if we have a working cc
-echo -n "cc... "
-cat <<EOF > fake_cc.c
-#include <stdio.h>
-main() { printf("woot\n"); }
+test_compile cc <<EOF
+main() {
+	printf("woot\n");
+}
 EOF
-if ! ${CC} fake_cc.c -o /dev/null 1>/dev/null 2>/dev/null; then
-	not_found "No C compiler found (try to install gcc or clang)"
-fi
-echo ${CC}
-rm -f fake_cc*
 
-
-# Check if we have strlcpy
-echo -n "strlcpy... "
-cat <<EOF > fake_strlcpy.c
-main() { char buf[32]; strlcpy(buf, "woot", sizeof(buf)); }
+test_compile strlcpy strlcpy.o <<EOF
+main() {
+	char buf[32];
+	strlcpy(buf, "woot", sizeof(buf));
+}
 EOF
-if ! ${CC} fake_strlcpy.c -o /dev/null 1>/dev/null 2>/dev/null; then
-	echo "not found (we'll use ours)"
-	X_OBJECTS="$X_OBJECTS strlcpy.o"
-	CFLAGS="$CFLAGS -DHAS_NO_STRLCPY"
-else
-	echo yes
-fi
-rm -f fake_strlcpy*
 
-
-# Check if we have strlcat
-echo -n "strlcat... "
-cat <<EOF > fake_strlcat.c
-main() { char buf[32]; strlcat(buf, "woot", sizeof(buf)); }
+test_compile strlcat strlcat.o <<EOF
+main() {
+	char buf[32];
+	strlcat(buf, "woot", sizeof(buf));
+}
 EOF
-if ! ${CC} fake_strlcat.c -o /dev/null 1>/dev/null 2>/dev/null; then
-	echo "not found (we'll use ours)"
-	X_OBJECTS="$X_OBJECTS strlcat.o"
-	CFLAGS="$CFLAGS -DHAS_NO_STRLCAT"
-else
-	echo yes
-fi
-rm -f fake_strlcat*
 
-
-# Check if we have strtonum
-echo -n "strtonum... "
-cat <<EOF > fake_strtonum.c
-main() { int i; const char *errstr; i = strtonum("42", 1, 64, &errstr); }
+test_compile strtonum strtonum.o <<EOF
+main() {
+	const char *errstr;
+	int i = strtonum("42", 1, 64, &errstr);
+}
 EOF
-if ! ${CC} fake_strtonum.c -o /dev/null 1>/dev/null 2>/dev/null; then
-	echo "not found (we'll use ours)"
-	X_OBJECTS="$X_OBJECTS strtonum.o"
-	CFLAGS="$CFLAGS -DHAS_NO_STRTONUM"
-else
-	echo yes
-fi
-rm -f fake_strtonum*
 
-# Check if we have pledge (yeah right)
-echo -n "pledge... "
-cat <<EOF > fake_pledge.c
-main() { int i; i = pledge("", ""); }
+test_compile pledge pledge.o <<EOF
+main() {
+	int i = pledge("", "");
+}
 EOF
-if ! ${CC} fake_pledge.c -o /dev/null 1>/dev/null 2>/dev/null; then
-	echo "not found (we'll use ours)"
-	X_OBJECTS="$X_OBJECTS pledge.o"
-	CFLAGS="$CFLAGS -DHAS_NO_PLEDGE"
-else
-	echo yes
-fi
-rm -f fake_pledge*
 
-# Check if we have setresgid
-echo -n "setresgid... "
-cat <<EOF > fake_setresgid.c
-main() { int i; i = setresgid(9999, 9999, 9999); }
+test_compile setresgid setresgid.o <<EOF
+main() {
+	int i = setresgid(9999, 9999, 9999);
+}
 EOF
-if ! ${CC} fake_setresgid.c -o /dev/null 1>/dev/null 2>/dev/null; then
-	echo "not found (we'll use ours)"
-	X_OBJECTS="$X_OBJECTS setresgid.o"
-	CFLAGS="$CFLAGS -DHAS_NO_SETRESGID"
-else
-	echo yes
-fi
-rm -f fake_setresgid*
 
-# Check if we have setresuid
-echo -n "setresuid... "
-cat <<EOF > fake_setresuid.c
-main() { int i; i = setresuid(9999, 9999, 9999); }
+test_compile setresuid setresuid.o <<EOF
+main() {
+	int i = setresuid(9999, 9999, 9999);
+}
 EOF
-if ! ${CC} fake_setresuid.c -o /dev/null 1>/dev/null 2>/dev/null; then
-	echo "not found (we'll use ours)"
-	X_OBJECTS="$X_OBJECTS setresuid.o"
-	CFLAGS="$CFLAGS -DHAS_NO_SETRESUID"
-else
-	echo yes
-fi
-rm -f fake_setresuid*
 
-# Check if we have stravis
-echo -n "stravis... "
-cat <<EOF > fake_stravis.c
+test_compile stravis stravis.o -DHAS_NO_STRAVIS <<EOF
 #include <vis.h>
-main() { int i; i = stravis(NULL, NULL, 0); }
+main() {
+	int i = stravis(NULL, NULL, 0);
+}
 EOF
-if ! ${CC} fake_stravis.c -o /dev/null 1>/dev/null 2>/dev/null; then
-	echo "not found (we'll use ours)"
-	X_OBJECTS="$X_OBJECTS stravis.o"
-	CFLAGS="$CFLAGS -DHAS_NO_STRAVIS"
-else
-	echo yes
-fi
-rm -f fake_stravis*
 
-# Check if we have reallocarray
-echo -n "reallocarray... "
-cat <<EOF > fake_reallocarray.c
+test_compile reallocarray reallocarray.o <<EOF
 #include <stdlib.h>
-main() { char *c; c = reallocarray(NULL, 0, 0); }
+main() {
+	char *c = reallocarray(NULL, 0, 0);
+}
 EOF
-if ! ${CC} fake_reallocarray.c -o /dev/null 1>/dev/null 2>/dev/null; then
-	echo "not found (we'll use ours)"
-	X_OBJECTS="$X_OBJECTS reallocarray.o"
-	CFLAGS="$CFLAGS -DHAS_NO_REALLOCARRAY"
-else
-	echo yes
-fi
-rm -f fake_reallocarray*
+
+test_compile sys_siglist siglist.o <<EOF
+#include <signal.h>
+main() {
+	char *c = sys_siglist[9];
+}
+EOF
+
+test_compile sys_signame signame.o <<EOF
+#include <signal.h>
+main() {
+	char *c = sys_signame[9];
+}
+EOF
 
 generate_makefile Makefile.src > Makefile
 generate_makefile src/Makefile.src > src/Makefile

@@ -21,7 +21,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#ifndef __linux__
 #include <vis.h>
+#endif
 
 #include "sh.h"
 
@@ -661,7 +663,11 @@ histsave(int lno, const char *cmd, int dowrite)
 
 		history_lock(LOCK_EX);
 		if (fstat(fileno(histfh), &sb) != -1) {
+#ifdef __linux__
+			if (timespeccmp(&sb.st_mtim, &last_sb.st_mtim, ==))
+#else
 			if (timespeccmp(&sb.st_mtimespec, &last_sb.st_mtimespec, ==))
+#endif
 				; /* file is unchanged */
 			else {
 				histreset();

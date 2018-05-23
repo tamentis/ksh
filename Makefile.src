@@ -16,8 +16,6 @@ install: src/${PROG}
 
 clean:
 	cd src/ && make clean
-	cd afl/ && make clean
-	cd tests/ && make clean
 
 mantest:
 	nroff -man ${PROG}.1 | less -R

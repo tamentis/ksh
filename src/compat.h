@@ -35,3 +35,7 @@
 			(vsp)->tv_nsec += 1000000000L;			\
 		}							\
 	} while (0)
+
+#ifdef __linux__
+#include "compat_linux.h"
+#endif
