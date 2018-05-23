@@ -19,15 +19,6 @@
 /* Include vi editing? */
 #define VI 1
 
-/* Include job control? */
-#define JOBS 1
-
-/* Include brace-expansion? */
-#define BRACE_EXPAND 1
-
-/* Include any history? */
-#define HISTORY 1
-
 /* Strict POSIX behaviour? */
 /* #undef POSIXLY_CORRECT */
 
@@ -50,10 +41,5 @@
 # undef EMACS
 # undef VI
 #endif
-
-/* Editing implies history */
-#if defined(EDIT) && !defined(HISTORY)
-# define HISTORY
-#endif /* EDIT */
 
 #endif /* CONFIG_H */
