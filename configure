@@ -29,6 +29,7 @@ generate_makefile() {
 	echo
 
 	echo "CFLAGS+=$CFLAGS -std=c99 -pedantic"
+	echo "CFLAGS+=-I."
 	echo "CFLAGS+=-Wall -W -Wpointer-arith -Wbad-function-cast -Wcast-qual"
 	echo "CFLAGS+=-Wstrict-prototypes -Wmissing-prototypes"
 	echo "CFLAGS+=-Wmissing-declarations -Wnested-externs -Winline"
@@ -263,6 +264,14 @@ test_compile sys_signame signame.o <<EOF
 #include <signal.h>
 main() {
 	char *c = sys_signame[9];
+}
+EOF
+
+test_compile unvis "vis.o unvis.o" <<EOF
+#include <vis.h>
+main() {
+	char c[32];
+	strunvis(c, "woot");
 }
 EOF
 

@@ -207,6 +207,8 @@ strnvis(char *dst, const char *src, size_t siz, int flag)
 	return (dst - start);
 }
 
+// Separate stravis() since vis.h is on macOS but not this function.
+#if 0
 int
 stravis(char **outp, const char *src, int flag)
 {
@@ -225,6 +227,7 @@ stravis(char **outp, const char *src, int flag)
 	}
 	return (len);
 }
+#endif
 
 int
 strvisx(char *dst, const char *src, size_t len, int flag)
