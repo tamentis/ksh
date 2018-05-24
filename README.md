@@ -1,10 +1,10 @@
 # ksh port
 
 This is my port of the OpenBSD ksh shell for all my machines not running
-OpenBSD.  It is provided AS IS, with NO WARRANTY, either expressed or implied.
+OpenBSD.
 
-Barely compiles and kinda runs on:
- - macOS 10.12, 10.13
+Barely compiles and kinda runs (thanks to many ugly hacks) on:
+ - macOS 10.13
  - Linux
 
 ## Installing with Homebrew on macOS
@@ -13,10 +13,9 @@ Just do it, you know you want to:
 $ brew install tamentis/core/openbsd-ksh
 ```
 
-## Current version
-This is sync'd with OpenBSD 6.3.
-
-## Changes
+## Changelog
+### 6.4
+- Support 64 bit integers on 32 bit architectures.
 ### 6.3
 - Memory allocation was switched from calloc(3) back to malloc(3), making it
   easier to recognize uninitialized memory. As a result, a history-related bug
@@ -32,8 +31,8 @@ This is sync'd with OpenBSD 6.3.
 
 ## Disclaimer
 I cannot be held responsible for whatever damage is done to your system from
-using that code.  I have taken many shortcuts to get that running on both Linux
-and macOS
+using that code.  It is provided AS IS, with NO WARRANTY, either expressed or
+implied.
 
 ## Refresh
 1. clone the repo for whatever branch you want:
