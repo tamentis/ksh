@@ -18,6 +18,11 @@ $ brew install tamentis/core/openbsd-ksh
 - This package will not install ksh as sh replacement, neither will it install the corresponding sh man page, this is not intended as a system shell.
 
 ## Changelog
+### 6.5
+- Bound ^L (ctrl-l) to clear the screen rather than redrawing.
+- Addressed inconsistent behavior when evaluating arithmetical expressions.
+- Skip most of the mail check if MAIL is not set.
+- Fixed the case where the recursion detection isn't reset when the command is interrupted.
 ### 6.4
 - Support 64 bit integers on 32 bit architectures.
 ### 6.3
