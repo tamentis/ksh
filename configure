@@ -230,6 +230,12 @@ main() {
 }
 EOF
 
+test_compile issetugid issetugid.o <<EOF
+main() {
+	int i = issetugid();
+}
+EOF
+
 test_compile setresgid setresgid.o <<EOF
 main() {
 	int i = setresgid(9999, 9999, 9999);
