@@ -4,13 +4,35 @@ This is my port of the OpenBSD ksh shell for all my machines not running
 OpenBSD.
 
 Barely compiles and kinda runs (thanks to many ugly hacks) on:
- - macOS 10.13
- - Linux
+ - macOS (tested on 10.13, 10.14)
+ - Linux (tested on Ubuntu 18.04)
 
-## Installing with Homebrew on macOS
+## Installation
+
+### Homebrew on macOS
 Just do it, you know you want to:
 ```
 $ brew install tamentis/core/openbsd-ksh
+```
+
+### Ubuntu
+```
+$ sudo apt-get update
+$ sudo apt-get install make gcc libc-dev ncurses-dev
+```
+Then continue with the generic instructions below.
+
+### Centos
+```
+$ sudo yum install gcc make ncurses-devel
+```
+Then continue with the generic instructions below.
+
+### Unix-y, from source
+```
+$ ./configure
+$ make
+$ sudo make install
 ```
 
 ## What's missing
@@ -44,9 +66,22 @@ using that code.  It is provided AS IS, with NO WARRANTY, either expressed or
 implied.
 
 ## Refresh
+Via CVS:
 1. clone the repo for whatever branch you want:
 ```
 $ cvs -d anoncvs@anoncvs.ca.openbsd.org:/cvs co -rOPENBSD_6_3 src/bin/ksh
 ```
 2. hack away, diff, incorporate
 3. pull request?
+
+Via the GitHub clone:
+1. Clone the clone:
+```
+git clone https://github.com/openbsd/src
+```
+2. Export the patches one by one, edit the path, import:
+```
+$ git format-patch -1 --stdout e2d3b05ea4601a... > /tmp/patch
+$ vim /tmp/patch
+$ git am /tmp/patch
+```
