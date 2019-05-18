@@ -13,6 +13,10 @@ Just do it, you know you want to:
 $ brew install tamentis/core/openbsd-ksh
 ```
 
+## What's missing
+- There is no call to `pledge()`, since it does not exist outside of OpenBSD.
+- This package will not install ksh as sh replacement, neither will it install the corresponding sh man page, this is not intended as a system shell.
+
 ## Changelog
 ### 6.4
 - Support 64 bit integers on 32 bit architectures.
