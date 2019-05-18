@@ -38,7 +38,7 @@ all: ${BINARY}
 obj: ${OBJECTS}
 
 ${BINARY}: ${OBJECTS}
-	$(CC) -o ${BINARY} ${OBJECTS}
+	$(CC) ${LDFLAGS} -o ${BINARY} ${OBJECTS}
 
 clean:
 	rm -f ${BINARY} ${OBJECTS}

@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 # Configure script for 'ksh'
-# Copyright (c) 2012-2018 Bertrand Janin <b@janin.com>
+# Copyright (c) 2012-2019 Bertrand Janin <b@janin.com>
 #
 #
 
@@ -34,6 +34,9 @@ generate_makefile() {
 	echo "CFLAGS+=-Wstrict-prototypes -Wmissing-prototypes"
 	echo "CFLAGS+=-Wmissing-declarations -Wnested-externs -Winline"
 	echo "CFLAGS+=-DVERSION=\\\"$VERSION\\\" $X_CFLAGS"
+	echo
+	echo "LDFLAGS+=-lcurses"
+	echo
 
 	if [ "$DEBUG_MODE" = "Y" ]; then
 		echo "CFLAGS+=-Wall -ggdb -O0"
